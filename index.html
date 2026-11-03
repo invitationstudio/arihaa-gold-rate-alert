@@ -318,14 +318,30 @@ function checkTargetAlerts(rates){
    addHistory(message);
 
    console.log("ARIHAA ALERT TRIGGERED:", message);
-   if("Notification" in window && Notification.permission==="granted"){
-    new Notification("ARIHAA TARGET RATE ALERT",{
-     body:product.name+
-      "\nCurrent Rate: "+formatRate(product.rate)+
-      "\nYour Target: "+formatRate(target),
-     tag:"target-"+product.id
+
+if ("Notification" in window && Notification.permission === "granted") {
+  try {
+    const alertNotification = new Notification("ARIHAA TARGET RATE ALERT", {
+      body: product.name +
+        "\nCurrent Rate: " + formatRate(product.rate) +
+        "\nYour Target: " + formatRate(target),
+      tag: "target-" + product.id,
+      requireInteraction: true
     });
-   }
+
+    alertNotification.onclick = function() {
+      window.focus();
+      alertNotification.close();
+    };
+
+    console.log("ARIHAA NOTIFICATION SENT SUCCESSFULLY");
+
+  } catch (error) {
+    console.error("ARIHAA NOTIFICATION ERROR:", error);
+  }
+} else {
+  console.error("Notification permission:", Notification.permission);
+}
 
    firedAlerts[key]=true;
    localStorage.setItem("arihaaFiredAlerts",JSON.stringify(firedAlerts));
