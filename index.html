@@ -317,6 +317,7 @@ function checkTargetAlerts(rates){
 
    addHistory(message);
 
+   console.log("ARIHAA ALERT TRIGGERED:", message);
    if("Notification" in window && Notification.permission==="granted"){
     new Notification("ARIHAA TARGET RATE ALERT",{
      body:product.name+
