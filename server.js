@@ -31,7 +31,7 @@ async function getRates() {
   const html = await response.text();
   const values = {};
 
-  const regex = /data-aib-live="quote&#x65;\.([^"]+)"[^>]*>([^<]*)</g;
+  const regex = /data-aib-live="quote\.([^"]+)"[^>]*>([^<]*)</g;
   let match;
 
   while ((match = regex.exec(html)) !== null) {
