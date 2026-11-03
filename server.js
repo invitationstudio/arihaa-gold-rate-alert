@@ -3,7 +3,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 const WEBSITE = "https://allindiabullion.com/display/maharashtra/mumbai?show=gl999%2Cgl995%2Cgr999%2Cgr999g%2Cgr995%2Cgr995g%2Csl999%2Csr999%2Csr999g&name=ARIHAA+GOLD+LLP";
 
@@ -31,7 +31,7 @@ async function getRates() {
   const html = await response.text();
   const values = {};
 
-  const regex = /data-aib-live="quote\.([^"]+)"[^>]*>([^<]*)</g;
+  const regex = /data-aib-live="quote&#x65;\.([^"]+)"[^>]*>([^<]*)</g;
   let match;
 
   while ((match = regex.exec(html)) !== null) {
@@ -69,8 +69,16 @@ async function getRates() {
 }
 
 const server = http.createServer(async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   res.setHeader("Cache-Control", "no-store");
+
+  if (req.method === "OPTIONS") {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
 
   if (req.url.startsWith("/api/rates")) {
     try {
@@ -111,9 +119,9 @@ const server = http.createServer(async (req, res) => {
   res.end("Not Found");
 });
 
-server.listen(PORT, "127.0.0.1", () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log("--------------------------------");
   console.log("ARIHAA GOLD RATE SERVER STARTED");
-  console.log("http://localhost:" + PORT);
+  console.log("PORT: " + PORT);
   console.log("--------------------------------");
 });
