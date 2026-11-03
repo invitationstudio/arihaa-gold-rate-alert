@@ -1,0 +1,400 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARIHAA GOLD RATE ALERT</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#10131b;color:#fff}
+header{background:#191e29;padding:22px;border-bottom:1px solid #39312a;text-align:center}
+header h1{color:#e7bd62;margin:0;font-size:25px}
+header p{color:#aaa;margin:8px 0 0}
+.container{max-width:1100px;margin:25px auto;padding:0 15px}
+.top{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;align-items:center;background:#191e29;padding:18px;border-radius:12px}
+button{border:0;border-radius:7px;padding:12px 18px;background:#d6a943;color:#171717;font-weight:bold;cursor:pointer}
+button:hover{background:#f0c968}
+.status{color:#aaa;font-size:13px;margin-top:5px}
+#connection{color:#ff7777}
+.section-title{color:#e7bd62;margin:28px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.card{background:#1b202c;border:1px solid #343b49;padding:20px;border-radius:12px}
+.card h3{font-size:15px;color:#bbb;margin:0 0 15px}
+.rate{font-size:27px;font-weight:bold;color:#f2d18a}
+.unit{color:#888;font-size:12px;margin-top:6px}
+.panel{margin-top:25px;background:#191e29;padding:20px;border-radius:12px}
+.panel h3{color:#e7bd62;margin-top:0}
+#history{font-size:13px;color:#bbb;line-height:1.8}
+.small{font-size:12px;color:#aaa;line-height:1.7}
+.target-row{display:grid;grid-template-columns:25px minmax(150px,1fr) minmax(115px,150px) minmax(125px,160px);gap:10px;align-items:center;padding:13px 0;border-bottom:1px solid #343b49}
+.target-name{font-size:13px;color:#eee}
+.target-row input[type=number],.target-row select{
+ width:100%;min-width:0;padding:10px;background:#10131b;color:#fff;
+ border:1px solid #555;border-radius:6px
+}
+.target-row input[type=checkbox]{width:18px;height:18px;accent-color:#d6a943}
+.target-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:18px}
+#saveStatus{font-size:13px;color:#50d69b}
+@media(max-width:600px){
+ .target-row{grid-template-columns:25px 1fr 1fr}
+ .target-name{grid-column:2/4}
+}
+footer{text-align:center;color:#777;padding:25px;font-size:12px}
+</style>
+</head>
+
+<body>
+<header>
+ <h1>ARIHAA GOLD RATE ALERT</h1>
+ <p>Your Trusted Partner In Gold</p>
+</header>
+
+<div class="container">
+
+ <div class="top">
+  <div>
+   <div><b>Live Connection:</b> <span id="connection">Connecting...</span></div>
+   <div class="status">Last Updated: <span id="updated">Waiting...</span></div>
+   <div class="status">Next refresh: <span id="countdown">60</span> seconds</div>
+  </div>
+  <div>
+   <button onclick="enableAlerts()">Enable Desktop Alerts</button>
+   <button onclick="loadRates()">Refresh Now</button>
+  </div>
+ </div>
+
+ <h2 class="section-title">GOLD RATES</h2>
+ <div class="grid" id="goldGrid"></div>
+
+ <h2 class="section-title">SILVER RATES</h2>
+ <div class="grid" id="silverGrid"></div>
+
+ <div class="panel">
+  <h3>🎯 My Specific Rate Alerts</h3>
+  <p class="small">
+   ज्या Rate साठी Notification पाहिजे ते Select करा आणि तुमचा Target Rate टाका.
+   फक्त Select केलेल्या Rates चेच Target Notifications येतील.
+  </p>
+
+  <div id="targetRows"></div>
+
+  <div class="target-actions">
+   <button onclick="saveTargetSettings()">Save Alert Settings</button>
+   <span id="saveStatus"></span>
+  </div>
+
+  <p class="small">
+   उदाहरण: Target ₹1,39,500 आणि At or Below निवडल्यास Rate ₹1,39,500
+   किंवा त्यापेक्षा कमी झाल्यावर एक Notification येईल.
+   पुन्हा Target च्या वर गेल्यावर पुढील वेळी पुन्हा Alert मिळू शकतो.
+  </p>
+ </div>
+
+ <div class="panel">
+  <h3>Rate Alert History</h3>
+  <div id="history">No target alerts triggered yet.</div>
+ </div>
+
+</div>
+
+<footer>ARIHAA GOLD LLP | Live Bullion Rate Monitoring System</footer>
+
+<script>
+const REFRESH_SECONDS = 60;
+
+let secondsLeft = REFRESH_SECONDS;
+let isLoading = false;
+let currentRates = [];
+
+const products = [
+ {id:"GL999.ex",name:"Gold 999 Retail",metal:"Gold",unit:"per 10g"},
+ {id:"GL995.ex",name:"Gold 995 Retail",metal:"Gold",unit:"per 10g"},
+ {id:"GR999.ex",name:"Gold 999 RTGS",metal:"Gold",unit:"per 10g"},
+ {id:"GR999.inc",name:"Gold 999 RTGS With GST",metal:"Gold",unit:"per 10g"},
+ {id:"GR995.ex",name:"Gold 995 RTGS",metal:"Gold",unit:"per 10g"},
+ {id:"GR995.inc",name:"Gold 995 RTGS With GST",metal:"Gold",unit:"per 10g"},
+ {id:"SL999.ex",name:"Silver 999 Retail",metal:"Silver",unit:"per kg"},
+ {id:"SR999.ex",name:"Silver 999 RTGS",metal:"Silver",unit:"per kg"},
+ {id:"SR999.inc",name:"Silver 999 RTGS With GST",metal:"Silver",unit:"per kg"}
+];
+
+let targetSettings = {};
+let firedAlerts = {};
+
+try {
+ targetSettings = JSON.parse(localStorage.getItem("arihaaTargetSettings") || "{}");
+ firedAlerts = JSON.parse(localStorage.getItem("arihaaFiredAlerts") || "{}");
+} catch(e) {
+ targetSettings = {};
+ firedAlerts = {};
+}
+
+function formatRate(value){
+ return "₹" + Number(value).toLocaleString("en-IN");
+}
+
+function enableAlerts(){
+ if(!("Notification" in window)){
+  alert("This browser does not support desktop notifications.");
+  return;
+ }
+
+ Notification.requestPermission().then(permission=>{
+  if(permission==="granted"){
+   alert("Desktop Alerts Enabled Successfully!");
+   new Notification("ARIHAA GOLD ALERT",{
+    body:"Your selected rate alerts are active."
+   });
+  }else{
+   alert("Please allow notifications in Chrome settings.");
+  }
+ });
+}
+
+function addHistory(message){
+ const history=document.getElementById("history");
+
+ if(history.innerText==="No target alerts triggered yet."){
+  history.innerHTML="";
+ }
+
+ const item=document.createElement("div");
+ item.style.padding="7px 0";
+ item.style.borderBottom="1px solid #343b49";
+ item.textContent=new Date().toLocaleTimeString("en-IN")+" - "+message;
+ history.prepend(item);
+
+ while(history.children.length>30){
+  history.removeChild(history.lastChild);
+ }
+}
+
+function renderRates(rates){
+ const goldGrid=document.getElementById("goldGrid");
+ const silverGrid=document.getElementById("silverGrid");
+
+ goldGrid.innerHTML="";
+ silverGrid.innerHTML="";
+
+ rates.forEach(product=>{
+  const card=document.createElement("div");
+  card.className="card";
+
+  const heading=document.createElement("h3");
+  heading.textContent=product.name;
+
+  const rate=document.createElement("div");
+  rate.className="rate";
+  rate.textContent=formatRate(product.rate);
+
+  const unit=document.createElement("div");
+  unit.className="unit";
+  unit.textContent=product.unit;
+
+  card.append(heading,rate,unit);
+
+  if(product.metal==="Gold") goldGrid.appendChild(card);
+  else silverGrid.appendChild(card);
+ });
+}
+
+function renderTargetSettings(){
+ const container=document.getElementById("targetRows");
+ container.innerHTML="";
+
+ products.forEach(product=>{
+  const setting=targetSettings[product.id] || {
+   enabled:false,
+   target:"",
+   direction:"below"
+  };
+
+  const row=document.createElement("div");
+  row.className="target-row";
+  row.dataset.id=product.id;
+
+  const checkbox=document.createElement("input");
+  checkbox.type="checkbox";
+  checkbox.className="target-enabled";
+  checkbox.checked=!!setting.enabled;
+  checkbox.title="Enable this rate alert";
+
+  const name=document.createElement("div");
+  name.className="target-name";
+  name.textContent=product.name;
+
+  const target=document.createElement("input");
+  target.type="number";
+  target.className="target-value";
+  target.placeholder="Target ₹";
+  target.min="1";
+  target.step="1";
+  target.value=setting.target || "";
+
+  const direction=document.createElement("select");
+  direction.className="target-direction";
+
+  const below=document.createElement("option");
+  below.value="below";
+  below.textContent="At or Below";
+
+  const above=document.createElement("option");
+  above.value="above";
+  above.textContent="At or Above";
+
+  direction.append(below,above);
+  direction.value=setting.direction || "below";
+
+  row.append(checkbox,name,target,direction);
+  container.appendChild(row);
+ });
+}
+
+function saveTargetSettings(){
+ const newSettings={};
+
+ document.querySelectorAll(".target-row").forEach(row=>{
+  const id=row.dataset.id;
+  const enabled=row.querySelector(".target-enabled").checked;
+  const target=row.querySelector(".target-value").value.trim();
+  const direction=row.querySelector(".target-direction").value;
+
+  if(enabled && (!target || Number(target)<=0)){
+   newSettings[id]={enabled:true,target:"",direction};
+   return;
+  }
+
+  newSettings[id]={
+   enabled,
+   target:target ? Number(target) : "",
+   direction
+  };
+ });
+
+ const invalid=products.find(p=>{
+  const s=newSettings[p.id];
+  return s.enabled && (!s.target || Number(s.target)<=0);
+ });
+
+ if(invalid){
+  alert(invalid.name+" साठी योग्य Target Rate टाका.");
+  return;
+ }
+
+ targetSettings=newSettings;
+ firedAlerts={};
+
+ localStorage.setItem("arihaaTargetSettings",JSON.stringify(targetSettings));
+ localStorage.setItem("arihaaFiredAlerts",JSON.stringify(firedAlerts));
+
+ document.getElementById("saveStatus").textContent="Settings Saved Successfully!";
+ setTimeout(()=>{
+  document.getElementById("saveStatus").textContent="";
+ },4000);
+}
+
+function checkTargetAlerts(rates){
+ rates.forEach(product=>{
+  const setting=targetSettings[product.id];
+
+  if(!setting || !setting.enabled || !setting.target) return;
+
+  const target=Number(setting.target);
+  const reached=setting.direction==="below"
+   ? Number(product.rate)<=target
+   : Number(product.rate)>=target;
+
+  const key=product.id+"_"+target+"_"+setting.direction;
+
+  if(reached && !firedAlerts[key]){
+   const directionText=setting.direction==="below"?"TARGET REACHED (AT OR BELOW)":"TARGET REACHED (AT OR ABOVE)";
+
+   const message=product.name+" "+directionText+
+    " | Current: "+formatRate(product.rate)+
+    " | Target: "+formatRate(target);
+
+   addHistory(message);
+
+   if("Notification" in window && Notification.permission==="granted"){
+    new Notification("ARIHAA TARGET RATE ALERT",{
+     body:product.name+
+      "\nCurrent Rate: "+formatRate(product.rate)+
+      "\nYour Target: "+formatRate(target),
+     tag:"target-"+product.id
+    });
+   }
+
+   firedAlerts[key]=true;
+   localStorage.setItem("arihaaFiredAlerts",JSON.stringify(firedAlerts));
+  }
+
+  if(!reached){
+   const key=product.id+"_"+target+"_"+setting.direction;
+
+   if(firedAlerts[key]){
+    delete firedAlerts[key];
+    localStorage.setItem("arihaaFiredAlerts",JSON.stringify(firedAlerts));
+   }
+  }
+ });
+}
+
+async function loadRates(){
+ if(isLoading)return;
+ isLoading=true;
+
+ const connection=document.getElementById("connection");
+ connection.textContent="Checking...";
+ connection.style.color="#e7bd62";
+
+ try{
+  const response=await fetch("/api/rates?time="+Date.now(),{
+   cache:"no-store"
+  });
+
+  if(!response.ok){
+   throw new Error("Server Error: "+response.status);
+  }
+
+  const data=await response.json();
+
+  if(!data.success || !Array.isArray(data.rates)){
+   throw new Error(data.error||"Invalid server response");
+  }
+
+  currentRates=data.rates;
+  renderRates(data.rates);
+  checkTargetAlerts(data.rates);
+
+  connection.textContent="CONNECTED";
+  connection.style.color="#50d69b";
+  document.getElementById("updated").textContent=data.updatedAt;
+  secondsLeft=REFRESH_SECONDS;
+
+ }catch(error){
+  connection.textContent="ERROR: "+error.message;
+  connection.style.color="#ff7777";
+ }finally{
+  isLoading=false;
+ }
+}
+
+renderTargetSettings();
+
+setInterval(()=>{
+ secondsLeft--;
+ document.getElementById("countdown").textContent=Math.max(0,secondsLeft);
+
+ if(secondsLeft<=0){
+  loadRates();
+  secondsLeft=REFRESH_SECONDS;
+ }
+},1000);
+
+loadRates();
+</script>
+
+</body>
+</html>
